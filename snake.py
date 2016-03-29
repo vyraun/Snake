@@ -185,7 +185,6 @@ for _ in xrange(10):
     g = game()
     screen, reward = g.next()
     img_saver.send(screen)
-    cnt += 1
     try:
         S = np.asarray([screen] * nb_frames)
         while True:
