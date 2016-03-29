@@ -1,3 +1,4 @@
+from collections import namedtuple
 import os
 from random import sample as rsample
 
@@ -13,6 +14,8 @@ from matplotlib import pyplot as plt
 
 GRID_SIZE = 10
 
+Fruit = namedtuple('Fruit', ['x', 'y'])
+
 
 def game(snake_length=3, max_run=64):
     """
@@ -23,9 +26,8 @@ def game(snake_length=3, max_run=64):
     actions = [(-1, 0)] * snake_length  # An action for each snake segment
     center = int(GRID_SIZE / 2)
     snake = [(x, center) for x in range(center, center + snake_length)]
-    grow = -1
-    fruit_x = -1
-    fruit_y = -1
+    grow = -1  # Don't start growing snake yet
+    fruit = Fruit(-1, -1)
     while max_run > 0:
         # Draw borders
         screen = np.zeros((GRID_SIZE, GRID_SIZE))
@@ -44,26 +46,27 @@ def game(snake_length=3, max_run=64):
         reward = -1 * end_of_game
 
         # Draw fruit
-        if screen[fruit_y, fruit_x] > .5:
+        if screen[fruit.y, fruit.x] > .5:
             while True:
-                fruit_x, fruit_y = np.random.randint(1, GRID_SIZE - 1, 2)
-                if screen[fruit_y, fruit_x] < 1:
+                fruit = Fruit(*np.random.randint(1, GRID_SIZE - 1, 2))
+                if screen[fruit.y, fruit.x] < 1:
                     grow += 1
                     reward = len(snake) - snake_length + 1
                     break
 
-        screen[fruit_y, fruit_x] = .5
+        screen[fruit.y, fruit.x] = .5
         max_run -= 1
 
-        # Insert new action in front of list, pop last one.
         action = yield screen, reward
         if sum([abs(act) for act in action]) > 1:
             raise ValueError, 'Cannot move more than 1 unit at a time'
+
+        # Insert new action at the front of list, pop last one.
         actions.insert(0, action)
         actions.pop()
 
-        # Copy last segment, and add (0, 0) action
-        # as long as the snake needs to grow.
+        # For as long as the snake needs to grow,
+        # copy last segment, and add (0, 0) action
         if grow > 0:
             snake.append(snake[-1])
             actions.append((0, 0))
@@ -104,7 +107,7 @@ nb_frames = 4  # Number of frames (i.e., screens) to keep in history
 
 # Recipe of deep reinforcement learning model
 model = Sequential()
-model.add(Convolution2D(16, nb_row=3, nb_col=3, 
+model.add(Convolution2D(16, nb_row=5, nb_col=5, 
     input_shape=(nb_frames, GRID_SIZE, GRID_SIZE), activation='relu'))
 model.add(Convolution2D(16, nb_row=3, nb_col=3, activation='relu'))
 model.add(Flatten())
