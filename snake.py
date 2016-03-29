@@ -61,7 +61,6 @@ def game(snake_length=3, max_run=64):
         if sum([abs(act) for act in action]) > 1:
             raise ValueError, 'Cannot move more than 1 unit at a time'
 
-        # Insert new action at the front of list, pop last one.
         actions.insert(0, action)
         actions.pop()
 
