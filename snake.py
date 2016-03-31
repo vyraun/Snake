@@ -58,7 +58,10 @@ def game(snake_length=3, max_run=64):
         max_run -= 1
 
         action = yield screen, reward
-        if sum([abs(act) for act in action]) > 1:
+        step_size = sum([abs(act) for act in action])
+        if not step_size:
+            action = actions[0]  # Repeat last action
+        elif step_size > 1:
             raise ValueError, 'Cannot move more than 1 unit at a time'
 
         actions.insert(0, action)
@@ -99,14 +102,14 @@ batch_size = 128
 epsilon = 1.
 gamma = .8
 
-all_possible_actions = ((-1, 0), (1, 0), (0, -1), (0, 1))
+all_possible_actions = ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1))
 nb_actions = len(all_possible_actions)
 
 nb_frames = 4  # Number of frames (i.e., screens) to keep in history
 
 # Recipe of deep reinforcement learning model
 model = Sequential()
-model.add(Convolution2D(16, nb_row=5, nb_col=5, 
+model.add(Convolution2D(16, nb_row=3, nb_col=3, 
     input_shape=(nb_frames, GRID_SIZE, GRID_SIZE), activation='relu'))
 model.add(Convolution2D(16, nb_row=3, nb_col=3, activation='relu'))
 model.add(Flatten())
