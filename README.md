@@ -3,4 +3,4 @@ Toy example of a deep reinforcement model playing the game of Snake. It's a foll
 
 <img src="images/snake.gif" />
 
-It is (much) better than a random model, but it still needs to learn to get to fruit in fewer steps.
+The model has learned to get to fruit in few steps, however it still needs to learn to keep alive longer.
