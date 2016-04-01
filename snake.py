@@ -1,10 +1,12 @@
 from collections import namedtuple
+import itertools as it
 import os
 from random import sample as rsample
 
 import numpy as np
 
 from keras.models import Sequential
+from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Convolution2D
 from keras.layers.core import Dense, Flatten
 from keras.optimizers import SGD, RMSprop
@@ -17,18 +19,19 @@ GRID_SIZE = 10
 Fruit = namedtuple('Fruit', ['x', 'y'])
 
 
-def game(snake_length=3, max_run=64):
+def game(snake_length=3):
     """
     Coroutine of single snake game.
 
     An action tuple (dx, dy) has to be provided each call to send.
     """
     actions = [(-1, 0)] * snake_length  # An action for each snake segment
-    center = int(GRID_SIZE / 2)
-    snake = [(x, center) for x in range(center, center + snake_length)]
+    head_x = GRID_SIZE // 2 - snake_length // 2
+    snake = [(x, GRID_SIZE // 2) for x in range(head_x, head_x + snake_length)]
     grow = -1  # Don't start growing snake yet
     fruit = Fruit(-1, -1)
-    while max_run > 0:
+
+    while True:
         # Draw borders
         screen = np.zeros((GRID_SIZE, GRID_SIZE))
         screen[[0, -1]] = 1
@@ -47,17 +50,17 @@ def game(snake_length=3, max_run=64):
 
         # Draw fruit
         if screen[fruit.y, fruit.x] > .5:
+            grow += 1
+            reward = len(snake)
             while True:
                 fruit = Fruit(*np.random.randint(1, GRID_SIZE - 1, 2))
                 if screen[fruit.y, fruit.x] < 1:
-                    grow += 1
-                    reward = len(snake) - snake_length + 1
                     break
 
         screen[fruit.y, fruit.x] = .5
-        max_run -= 1
 
-        action = yield screen, reward
+        action = yield screen, reward, end_of_game
+
         step_size = sum([abs(act) for act in action])
         if not step_size:
             action = actions[0]  # Repeat last action
@@ -98,7 +101,7 @@ def experience_replay(batch_size):
 
 
 nb_epochs = 10000
-batch_size = 128
+batch_size = 64
 epsilon = 1.
 gamma = .8
 
@@ -109,11 +112,11 @@ nb_frames = 4  # Number of frames (i.e., screens) to keep in history
 
 # Recipe of deep reinforcement learning model
 model = Sequential()
-model.add(Convolution2D(16, nb_row=3, nb_col=3, 
-    input_shape=(nb_frames, GRID_SIZE, GRID_SIZE), activation='relu'))
+model.add(BatchNormalization(axis=1, input_shape=(nb_frames, GRID_SIZE, GRID_SIZE)))
 model.add(Convolution2D(16, nb_row=3, nb_col=3, activation='relu'))
+model.add(Convolution2D(32, nb_row=3, nb_col=3, activation='relu'))
 model.add(Flatten())
-model.add(Dense(100, activation='relu'))
+model.add(Dense(256, activation='relu'))
 model.add(Dense(nb_actions))
 model.compile(RMSprop(), 'MSE')
 
@@ -122,11 +125,11 @@ exp_replay.next()  # Start experience replay coroutine
 
 for i in xrange(nb_epochs):
     g = game()
-    screen, _ = g.next()
+    screen, _, _ = g.next()
     S = np.asarray([screen] * nb_frames)
     try:
-        # Start decreasing epsilon after half time
-        if i > nb_epochs / 2:
+        # Decrease epsilon over the first half of training
+        if epsilon > .1:
             epsilon -= .9 / (nb_epochs / 2)
 
         loss = 0.
@@ -136,7 +139,7 @@ for i in xrange(nb_epochs):
                 ix = np.argmax(model.predict(S[np.newaxis]), axis=-1)[0]
 
             action = all_possible_actions[ix]
-            screen, reward = g.send(action)
+            screen, reward, end_of_game = g.send(action)
             S_prime = np.zeros_like(S) 
             S_prime[1:] = S[:-1]
             S_prime[0] = screen
@@ -154,7 +157,7 @@ for i in xrange(nb_epochs):
                     # or future discounted q-values, in case episodes are still running.
                     t = model.predict(s[np.newaxis]).flatten()
                     ix = all_possible_actions.index(a)
-                    if r < 0:
+                    if end_of_game:
                         t[ix] = r
                     else:
                         t[ix] = r + gamma * model.predict(s_prime[np.newaxis]).max(axis=-1)
@@ -184,21 +187,24 @@ def save_img():
 img_saver = save_img()
 img_saver.next()
 
+game_cnt = it.count(1)
 for _ in xrange(10):
     g = game()
-    screen, reward = g.next()
+    screen, reward, end_of_game = g.next()
     img_saver.send(screen)
+    frame_cnt = it.count()
     try:
         S = np.asarray([screen] * nb_frames)
         while True:
+            frame_cnt.next()
             ix = np.argmax(model.predict(S[np.newaxis]), axis=-1)[0]
-            screen, _ = g.send(all_possible_actions[ix])
+            screen, _, _ = g.send(all_possible_actions[ix])
             S[1:] = S[:-1]
             S[0] = screen
             img_saver.send(screen)
             
     except StopIteration:
-        pass
+        print 'Saved %03i frames for game %02i' % (frame_cnt.next(), game_cnt.next())
 
 img_saver.close()
 
