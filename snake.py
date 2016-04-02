@@ -176,12 +176,11 @@ for i in xrange(nb_epochs):
 def save_img():
     if 'images' not in os.listdir('.'):
         os.mkdir('images')
-    frame = 0
+    frame_cnt = it.count()
     while True:
         screen = (yield)
         plt.imshow(screen, interpolation='none')
-        plt.savefig('images/%04i.png' % frame)
-        frame += 1
+        plt.savefig('images/%04i.png' % (frame_cnt.next(), ))
     
 
 img_saver = save_img()
@@ -204,7 +203,7 @@ for _ in xrange(10):
             img_saver.send(screen)
             
     except StopIteration:
-        print 'Saved %03i frames for game %02i' % (frame_cnt.next(), game_cnt.next())
+        print 'Saved %3i frames for game %3i' % (frame_cnt.next(), game_cnt.next())
 
 img_saver.close()
 
