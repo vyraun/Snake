@@ -59,7 +59,7 @@ def game(snake_length=3):
 
         screen[fruit.y, fruit.x] = .5
 
-        action = yield screen, reward, end_of_game
+        action = yield screen, reward
 
         step_size = sum([abs(act) for act in action])
         if not step_size:
@@ -125,7 +125,7 @@ exp_replay.next()  # Start experience replay coroutine
 
 for i in xrange(nb_epochs):
     g = game()
-    screen, _, _ = g.next()
+    screen, _ = g.next()
     S = np.asarray([screen] * nb_frames)
     try:
         # Decrease epsilon over the first half of training
@@ -139,7 +139,7 @@ for i in xrange(nb_epochs):
                 ix = np.argmax(model.predict(S[np.newaxis]), axis=-1)[0]
 
             action = all_possible_actions[ix]
-            screen, reward, end_of_game = g.send(action)
+            screen, reward = g.send(action)
             S_prime = np.zeros_like(S) 
             S_prime[1:] = S[:-1]
             S_prime[0] = screen
@@ -157,7 +157,7 @@ for i in xrange(nb_epochs):
                     # or future discounted q-values, in case episodes are still running.
                     t = model.predict(s[np.newaxis]).flatten()
                     ix = all_possible_actions.index(a)
-                    if end_of_game:
+                    if r < 0:
                         t[ix] = r
                     else:
                         t[ix] = r + gamma * model.predict(s_prime[np.newaxis]).max(axis=-1)
@@ -190,7 +190,7 @@ img_saver.next()
 game_cnt = it.count(1)
 for _ in xrange(10):
     g = game()
-    screen, reward, end_of_game = g.next()
+    screen, _ = g.next()
     img_saver.send(screen)
     frame_cnt = it.count()
     try:
@@ -198,7 +198,7 @@ for _ in xrange(10):
         while True:
             frame_cnt.next()
             ix = np.argmax(model.predict(S[np.newaxis]), axis=-1)[0]
-            screen, _, _ = g.send(all_possible_actions[ix])
+            screen, _ = g.send(all_possible_actions[ix])
             S[1:] = S[:-1]
             S[0] = screen
             img_saver.send(screen)
