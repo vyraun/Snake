@@ -9,3 +9,10 @@ I'm not sure how much more training is required for the model to become better. 
 
 By now, training takes a considerable amount of time, and probably another reinforcement learning algorithm (e.g., A3C) is necessary to keep training time within reasonable bounds.
 
+#Error
+
+Traceback (most recent call last):
+  File "snake.py", line 167, in <module>
+    loss += model.train_on_batch(np.array(inputs), np.array(targets))[0]
+IndexError: too many indices for array
+
